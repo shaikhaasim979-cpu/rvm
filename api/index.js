@@ -6,7 +6,7 @@ const app = express();
 // Enable CORS for cross-origin requests from GitHub Pages
 app.use(cors());
 
-// Parse incoming JSON request bodies
+// Parse incoming JSON bodies
 app.use(express.json());
 
 // Payout processing endpoint
@@ -25,7 +25,7 @@ app.post('/api/claim-payout', (req, res) => {
     // Generate transaction reference ID
     const payoutId = "TXN_" + Math.floor(100000 + Math.random() * 900000);
 
-    // Return success response to the GitHub Pages frontend
+    // Return success response to frontend
     res.json({
         success: true,
         payoutId: payoutId,
@@ -33,7 +33,16 @@ app.post('/api/claim-payout', (req, res) => {
     });
 });
 
-const PORT = 3000;
+// Health check route
+app.get('/', (req, res) => {
+    res.send("RVM Payout Server is Running on Vercel!");
+});
+
+// Export Express app for Vercel Serverless Function engine
+module.exports = app;
+
+// Local listening fallback
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`Payout server listening on http://localhost:${PORT}`);
+    console.log(`Payout server running on port ${PORT}`);
 });
