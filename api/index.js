@@ -3,11 +3,11 @@ const cors = require('cors');
 
 const app = express();
 
-// Enable CORS for cross-origin requests from GitHub Pages
 app.use(cors());
-
-// Parse incoming JSON bodies
 app.use(express.json());
+
+// Set to keep track of already claimed session IDs
+const usedSessions = new Set();
 
 // Payout processing endpoint
 app.post('/api/claim-payout', (req, res) => {
@@ -22,10 +22,21 @@ app.post('/api/claim-payout', (req, res) => {
         });
     }
 
+    // Check if session has already been claimed
+    if (usedSessions.has(sessionId)) {
+        return res.status(400).json({
+            success: false,
+            error: "This QR code reward has already been claimed!"
+        });
+    }
+
+    // Mark the session as used
+    usedSessions.add(sessionId);
+
     // Generate transaction reference ID
     const payoutId = "TXN_" + Math.floor(100000 + Math.random() * 900000);
 
-    // Return success response to frontend
+    // Return success response
     res.json({
         success: true,
         payoutId: payoutId,
@@ -38,10 +49,8 @@ app.get('/', (req, res) => {
     res.send("RVM Payout Server is Running on Vercel!");
 });
 
-// Export Express app for Vercel Serverless Function engine
 module.exports = app;
 
-// Local listening fallback
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Payout server running on port ${PORT}`);
