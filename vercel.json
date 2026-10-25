@@ -4,20 +4,10 @@
     "CASHFREE_CLIENT_ID": "CF11306171DBDRJ44BLOMS73CHTI00",
     "CASHFREE_CLIENT_SECRET": "cfsk_ma_test_9f4ed2b8bd0622ad627269ffb068a6f1_f6b703ca"
   },
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/index.js"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
-      ]
+      "src": "/(.*)",
+      "dest": "api/index.js"
     }
   ]
 }
