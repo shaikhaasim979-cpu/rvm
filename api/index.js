@@ -12,34 +12,37 @@ app.get('/', (req, res) => {
   res.status(200).send('RVM Cashfree Payout Backend is running.');
 });
 
-// Primary payout route
 const processPayout = async (req, res) => {
   const { sessionId, amount, upiId } = req.body;
 
   console.log(`[PAYOUT REQUEST] Session: ${sessionId} | Amount: ${amount} | UPI: ${upiId}`);
 
   try {
-    const transferId = `TXN_${Date.now()}`;
+    const timestamp = Date.now();
+    const transferId = `TXN_${timestamp}`;
 
-    // Cashfree Direct Transfer Payload
+    // Cashfree V2 Standard Payload (Populates All Transfers Table)
     const payload = {
-      transferId: transferId,
-      amount: parseFloat(amount),
-      transferMode: "upi",
-      vpa: upiId,
-      name: "RVM User",
-      email: "user@example.com",
-      phone: "9999999999",
-      remarks: `Payout for session ${sessionId}`
+      transfer_id: transferId,
+      transfer_amount: parseFloat(amount),
+      transfer_mode: "upi",
+      beneficiary_details: {
+        beneficiary_id: `BENE_${timestamp}`,
+        beneficiary_name: "RVM User",
+        beneficiary_vpa: upiId,
+        beneficiary_phone: "9999999999"
+      },
+      transfer_remarks: `RVM Session ${sessionId}`
     };
 
     const response = await axios.post(
-      'https://sandbox.cashfree.com/payout/v1.2/directTransfer',
+      'https://sandbox.cashfree.com/payout/transfers',
       payload,
       {
         headers: {
           'X-Client-Id': process.env.CASHFREE_CLIENT_ID,
           'X-Client-Secret': process.env.CASHFREE_CLIENT_SECRET,
+          'x-api-version': '2024-01-01',
           'Content-Type': 'application/json'
         }
       }
