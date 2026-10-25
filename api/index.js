@@ -4,28 +4,16 @@ const cors = require('cors');
 
 const app = express();
 
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
+app.use(cors());
 app.use(express.json());
-
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  return res.sendStatus(200);
-});
 
 // Root Health Check
 app.get('/', (req, res) => {
   res.status(200).send('RVM Cashfree Payout Backend is running.');
 });
 
-// Reusable handler for payout requests
-const handlePayout = async (req, res) => {
+// Primary payout logic
+const processPayout = async (req, res) => {
   const { sessionId, amount, upiId } = req.body;
 
   console.log(`[PAYOUT REQUEST] Session: ${sessionId} | Amount: ${amount} | UPI: ${upiId}`);
@@ -72,8 +60,8 @@ const handlePayout = async (req, res) => {
   }
 };
 
-// Mount both routes to guarantee matching on Vercel
-app.post('/claim-payout', handlePayout);
-app.post('/api/claim-payout', handlePayout);
+// Route matching for all possible path variations
+app.post('/claim-payout', processPayout);
+app.post('/api/claim-payout', processPayout);
 
 module.exports = app;
