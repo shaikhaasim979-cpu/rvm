@@ -1,5 +1,9 @@
 {
   "version": 2,
+  "env": {
+    "CASHFREE_CLIENT_ID": "CF11306171DBDRJ44BLOMS73CHTI00",
+    "CASHFREE_CLIENT_SECRET": "cfsk_ma_test_9f4ed2b8bd0622ad627269ffb068a6f1_f6b703ca"
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
