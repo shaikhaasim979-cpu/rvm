@@ -21,14 +21,15 @@ const processPayout = async (req, res) => {
   try {
     const transferId = `TXN_${Date.now()}`;
 
+    // Direct Transfer Payload Schema for Cashfree Sandbox
     const payload = {
       transfer_id: transferId,
       transfer_amount: parseFloat(amount),
       transfer_mode: "upi",
-      beneficiary_details: {
-        beneficiary_id: `BENE_${Date.now()}`,
-        beneficiary_name: "RVM User",
-        beneficiary_vpa: upiId
+      bene_details: {
+        name: "RVM User",
+        phone: "9999999999",
+        vpa: upiId
       }
     };
 
@@ -60,7 +61,6 @@ const processPayout = async (req, res) => {
   }
 };
 
-// Route matching for all possible path variations
 app.post('/claim-payout', processPayout);
 app.post('/api/claim-payout', processPayout);
 
