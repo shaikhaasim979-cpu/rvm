@@ -17,53 +17,82 @@ const processPayout = async (req, res) => {
 
   console.log(`[PAYOUT REQUEST] Session: ${sessionId} | Amount: ${amount} | UPI: ${upiId}`);
 
+  const timestamp = Date.now();
+  const beneId = `BENE_${timestamp}`;
+  const transferId = `TXN_${timestamp}`;
+
+  const headers = {
+    'X-Client-Id': process.env.CASHFREE_CLIENT_ID,
+    'X-Client-Secret': process.env.CASHFREE_CLIENT_SECRET,
+    'x-api-version': '2024-01-01',
+    'Content-Type': 'application/json'
+  };
+
   try {
-    const timestamp = Date.now();
-    const transferId = `TXN_${timestamp}`;
+    // ==========================================
+    // STEP 1: CREATE BENEFICIARY FIRST
+    // ==========================================
+    try {
+      await axios.post(
+        'https://sandbox.cashfree.com/payout/beneficiaries',
+        {
+          beneficiary_id: beneId,
+          beneficiary_name: "RVM User",
+          beneficiary_instrument_details: {
+            vpa: upiId
+          },
+          beneficiary_contact_details: {
+            beneficiary_email: "user@example.com",
+            beneficiary_phone: "9999999999"
+          }
+        },
+        { headers }
+      );
+      console.log(`[BENE SUCCESS] Created Beneficiary: ${beneId}`);
+    } catch (beneError) {
+      // If creating the beneficiary fails, stop immediately and send the exact error back
+      const errData = beneError.response ? beneError.response.data : beneError.message;
+      console.error('[BENE CREATION FAILED]:', errData);
+      return res.status(400).json({
+        success: false,
+        message: 'Failed to register UPI ID with Cashfree',
+        error: typeof errData === 'object' ? (errData.message || JSON.stringify(errData)) : errData
+      });
+    }
 
-    // Cashfree V2 Standard Payload (Populates All Transfers Table)
-    const payload = {
-      transfer_id: transferId,
-      transfer_amount: parseFloat(amount),
-      transfer_mode: "upi",
-      beneficiary_details: {
-        beneficiary_id: `BENE_${timestamp}`,
-        beneficiary_name: "RVM User",
-        beneficiary_vpa: upiId,
-        beneficiary_phone: "9999999999"
-      },
-      transfer_remarks: `RVM Session ${sessionId}`
-    };
-
-    const response = await axios.post(
+    // ==========================================
+    // STEP 2: EXECUTE TRANSFER
+    // ==========================================
+    const transferResponse = await axios.post(
       'https://sandbox.cashfree.com/payout/transfers',
-      payload,
       {
-        headers: {
-          'X-Client-Id': process.env.CASHFREE_CLIENT_ID,
-          'X-Client-Secret': process.env.CASHFREE_CLIENT_SECRET,
-          'x-api-version': '2024-01-01',
-          'Content-Type': 'application/json'
-        }
-      }
+        transfer_id: transferId,
+        transfer_amount: parseFloat(amount),
+        transfer_currency: "INR",
+        transfer_mode: "upi",
+        beneficiary_details: {
+          beneficiary_id: beneId
+        },
+        transfer_remarks: `RVM Session ${sessionId}`
+      },
+      { headers }
     );
 
-    console.log('[CASHFREE SUCCESS]:', response.data);
+    console.log('[TRANSFER SUCCESS]:', transferResponse.data);
 
     return res.status(200).json({ 
       success: true, 
       payoutId: transferId,
-      data: response.data 
+      data: transferResponse.data 
     });
 
-  } catch (error) {
-    const errorDetails = error.response ? error.response.data : error.message;
-    console.error('[CASHFREE ERROR]:', errorDetails);
-
+  } catch (transferError) {
+    const errData = transferError.response ? transferError.response.data : transferError.message;
+    console.error('[TRANSFER FAILED]:', errData);
     return res.status(500).json({
       success: false,
-      message: 'Payout failed',
-      error: typeof errorDetails === 'object' ? (errorDetails.message || JSON.stringify(errorDetails)) : errorDetails
+      message: 'Transfer failed',
+      error: typeof errData === 'object' ? (errData.message || JSON.stringify(errData)) : errData
     });
   }
 };
