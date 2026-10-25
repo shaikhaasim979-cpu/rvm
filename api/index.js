@@ -4,14 +4,24 @@ const cors = require('cors');
 
 const app = express();
 
-// Enable CORS for all routes
-app.use(cors());
+// Set up full CORS support for browser fetch requests
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
-// Handle explicit preflight requests
-app.options('*', cors());
+// Explicitly handle browser preflight OPTIONS requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return res.sendStatus(200);
+});
 
-// Root Health Check Endpoint
+// Root Health Check
 app.get('/', (req, res) => {
   res.status(200).send('RVM Cashfree Payout Backend is running.');
 });
