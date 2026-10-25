@@ -3,16 +3,26 @@ const axios = require('axios');
 const cors = require('cors');
 
 const app = express();
+
+// Enable CORS for all routes
 app.use(cors());
 app.use(express.json());
 
+// Handle explicit preflight requests
+app.options('*', cors());
+
+// Root Health Check Endpoint
+app.get('/', (req, res) => {
+  res.status(200).send('RVM Cashfree Payout Backend is running.');
+});
+
+// Payout Endpoint
 app.post('/api/claim-payout', async (req, res) => {
   const { sessionId, amount, upiId } = req.body;
 
   console.log(`[PAYOUT REQUEST] Session: ${sessionId} | Amount: ${amount} | UPI: ${upiId}`);
 
   try {
-    // Generate a unique transfer ID for Cashfree
     const transferId = `TXN_${Date.now()}`;
 
     const payload = {
@@ -43,13 +53,13 @@ app.post('/api/claim-payout', async (req, res) => {
     return res.status(200).json({ success: true, data: response.data });
 
   } catch (error) {
-    // THIS LOG WILL SHOW THE EXACT CASHFREE REJECTION REASON IN VERCEL
-    console.error('[CASHFREE ERROR]:', error.response ? error.response.data : error.message);
-    
+    const errorDetails = error.response ? error.response.data : error.message;
+    console.error('[CASHFREE ERROR]:', errorDetails);
+
     return res.status(500).json({
       success: false,
       message: 'Payout failed',
-      error: error.response ? error.response.data : error.message
+      error: errorDetails
     });
   }
 });
