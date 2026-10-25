@@ -30,11 +30,11 @@ const processPayout = async (req, res) => {
 
   try {
     // ==========================================
-    // STEP 1: CREATE BENEFICIARY FIRST
+    // STEP 1: CREATE BENEFICIARY (Fixed Endpoint)
     // ==========================================
     try {
       await axios.post(
-        'https://sandbox.cashfree.com/payout/beneficiaries',
+        'https://sandbox.cashfree.com/payout/beneficiary',
         {
           beneficiary_id: beneId,
           beneficiary_name: "RVM User",
@@ -50,7 +50,6 @@ const processPayout = async (req, res) => {
       );
       console.log(`[BENE SUCCESS] Created Beneficiary: ${beneId}`);
     } catch (beneError) {
-      // If creating the beneficiary fails, stop immediately and send the exact error back
       const errData = beneError.response ? beneError.response.data : beneError.message;
       console.error('[BENE CREATION FAILED]:', errData);
       return res.status(400).json({
