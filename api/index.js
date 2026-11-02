@@ -4,12 +4,37 @@ const cors = require('cors');
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
+
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return res.sendStatus(200);
+});
 
 // Root Health Check
 app.get('/', (req, res) => {
-  res.status(200).send('RVM Cashfree Payout Backend is running.');
+  res.status(200).send('RVM RazorpayX Payout Backend is running.');
+});
+
+// Basic Auth setup for RazorpayX
+const authHeader = Buffer.from(
+  `${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`
+).toString('base64');
+
+const razorpayClient = axios.create({
+  baseURL: 'https://api.razorpay.com/v1',
+  headers: {
+    'Authorization': `Basic ${authHeader}`,
+    'Content-Type': 'application/json'
+  }
 });
 
 const processPayout = async (req, res) => {
@@ -17,81 +42,60 @@ const processPayout = async (req, res) => {
 
   console.log(`[PAYOUT REQUEST] Session: ${sessionId} | Amount: ${amount} | UPI: ${upiId}`);
 
-  const timestamp = Date.now();
-  const beneId = `BENE_${timestamp}`;
-  const transferId = `TXN_${timestamp}`;
-
-  const headers = {
-    'X-Client-Id': process.env.CASHFREE_CLIENT_ID,
-    'X-Client-Secret': process.env.CASHFREE_CLIENT_SECRET,
-    'x-api-version': '2024-01-01',
-    'Content-Type': 'application/json'
-  };
-
   try {
-    // ==========================================
-    // STEP 1: CREATE BENEFICIARY (Fixed Endpoint)
-    // ==========================================
-    try {
-      await axios.post(
-        'https://sandbox.cashfree.com/payout/beneficiary',
-        {
-          beneficiary_id: beneId,
-          beneficiary_name: "RVM User",
-          beneficiary_instrument_details: {
-            vpa: upiId
-          },
-          beneficiary_contact_details: {
-            beneficiary_email: "user@example.com",
-            beneficiary_phone: "9999999999"
-          }
-        },
-        { headers }
-      );
-      console.log(`[BENE SUCCESS] Created Beneficiary: ${beneId}`);
-    } catch (beneError) {
-      const errData = beneError.response ? beneError.response.data : beneError.message;
-      console.error('[BENE CREATION FAILED]:', errData);
-      return res.status(400).json({
-        success: false,
-        message: 'Failed to register UPI ID with Cashfree',
-        error: typeof errData === 'object' ? (errData.message || JSON.stringify(errData)) : errData
-      });
-    }
-
-    // ==========================================
-    // STEP 2: EXECUTE TRANSFER
-    // ==========================================
-    const transferResponse = await axios.post(
-      'https://sandbox.cashfree.com/payout/transfers',
-      {
-        transfer_id: transferId,
-        transfer_amount: parseFloat(amount),
-        transfer_currency: "INR",
-        transfer_mode: "upi",
-        beneficiary_details: {
-          beneficiary_id: beneId
-        },
-        transfer_remarks: `RVM Session ${sessionId}`
-      },
-      { headers }
-    );
-
-    console.log('[TRANSFER SUCCESS]:', transferResponse.data);
-
-    return res.status(200).json({ 
-      success: true, 
-      payoutId: transferId,
-      data: transferResponse.data 
+    // STEP 1: Create Contact
+    const contactRes = await razorpayClient.post('/contacts', {
+      name: "RVM Recycling User",
+      email: "user@example.com",
+      contact: "9999999999",
+      type: "customer",
+      reference_id: `REF_${Date.now()}`
     });
 
-  } catch (transferError) {
-    const errData = transferError.response ? transferError.response.data : transferError.message;
-    console.error('[TRANSFER FAILED]:', errData);
+    const contactId = contactRes.data.id;
+
+    // STEP 2: Create Fund Account (VPA / UPI)
+    const fundAccountRes = await razorpayClient.post('/fund_accounts', {
+      contact_id: contactId,
+      account_type: "vpa",
+      vpa: {
+        address: upiId
+      }
+    });
+
+    const fundAccountId = fundAccountRes.data.id;
+
+    // STEP 3: Create Payout
+    const payoutRes = await razorpayClient.post('/payouts', {
+      account_number: process.env.RAZORPAY_ACCOUNT_NUMBER,
+      fund_account_id: fundAccountId,
+      amount: Math.round(parseFloat(amount) * 100), // Razorpay accepts amounts in paise (10 INR = 1000)
+      currency: "INR",
+      mode: "UPI",
+      purpose: "payout",
+      queue_if_low_balance: true,
+      reference_id: `RVM_${sessionId}_${Date.now()}`,
+      notes: {
+        session_id: sessionId
+      }
+    });
+
+    console.log('[RAZORPAYX SUCCESS]:', payoutRes.data);
+
+    return res.status(200).json({
+      success: true,
+      payoutId: payoutRes.data.id,
+      data: payoutRes.data
+    });
+
+  } catch (error) {
+    const errorDetails = error.response ? error.response.data : error.message;
+    console.error('[RAZORPAYX ERROR]:', errorDetails);
+
     return res.status(500).json({
       success: false,
-      message: 'Transfer failed',
-      error: typeof errData === 'object' ? (errData.message || JSON.stringify(errData)) : errData
+      message: 'Payout failed',
+      error: typeof errorDetails === 'object' ? (errorDetails.error ? errorDetails.error.description : JSON.stringify(errorDetails)) : errorDetails
     });
   }
 };
