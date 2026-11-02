@@ -28,16 +28,10 @@ const processPayout = async (req, res) => {
 
   console.log(`[PAYOUT REQUEST] Session: ${sessionId} | Amount: ${amount} | UPI: ${upiId}`);
 
-  const keyId = (process.env.RAZORPAY_KEY_ID || '').trim();
-  const keySecret = (process.env.RAZORPAY_KEY_SECRET || '').trim();
+  // Fetch from env with hardcoded direct fallbacks for new RazorpayX keys
+  const keyId = (process.env.RAZORPAY_KEY_ID || 'rzp_test_TvQxeen1rnZCzv').trim();
+  const keySecret = (process.env.RAZORPAY_KEY_SECRET || 'FQ9OZYH3dk9UAvS03oPQLD2Z').trim();
   const accountNumber = (process.env.RAZORPAY_ACCOUNT_NUMBER || '78787800800811').trim();
-
-  if (!keyId || !keySecret) {
-    return res.status(500).json({
-      success: false,
-      message: 'RazorpayX keys are missing in backend configuration.'
-    });
-  }
 
   const authHeader = `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`;
 
