@@ -28,12 +28,17 @@ const processPayout = async (req, res) => {
 
   console.log(`[PAYOUT REQUEST] Session: ${sessionId} | Amount: ${amount} | UPI: ${upiId}`);
 
-  // Fetch keys with direct test fallbacks
-  const keyId = (process.env.RAZORPAY_KEY_ID || 'rzp_test_TvQOZTcCmjmYxU').trim();
-  const keySecret = (process.env.RAZORPAY_KEY_SECRET || 'KTz5uw49CKktloo8sn9HDIRP').trim();
+  const keyId = (process.env.RAZORPAY_KEY_ID || '').trim();
+  const keySecret = (process.env.RAZORPAY_KEY_SECRET || '').trim();
   const accountNumber = (process.env.RAZORPAY_ACCOUNT_NUMBER || '78787800800811').trim();
 
-  // Basic Authorization String Encoding
+  if (!keyId || !keySecret) {
+    return res.status(500).json({
+      success: false,
+      message: 'RazorpayX keys are missing in backend configuration.'
+    });
+  }
+
   const authHeader = `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`;
 
   try {
@@ -81,7 +86,7 @@ const processPayout = async (req, res) => {
       {
         account_number: accountNumber,
         fund_account_id: fundAccountId,
-        amount: Math.round(parseFloat(amount) * 100), // Amount in paise
+        amount: Math.round(parseFloat(amount) * 100),
         currency: "INR",
         mode: "UPI",
         purpose: "payout",
