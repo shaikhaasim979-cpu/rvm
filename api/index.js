@@ -28,63 +28,76 @@ const processPayout = async (req, res) => {
 
   console.log(`[PAYOUT REQUEST] Session: ${sessionId} | Amount: ${amount} | UPI: ${upiId}`);
 
-  // Test keys fallback
-  const keyId = process.env.RAZORPAY_KEY_ID || 'rzp_test_TvQOZTcCmjmYxU';
-  const keySecret = process.env.RAZORPAY_KEY_SECRET || 'KTz5uw49CKktloo8sn9HDIRP';
-  const accountNumber = process.env.RAZORPAY_ACCOUNT_NUMBER || '78787800800811';
+  // Fetch keys with direct test fallbacks
+  const keyId = (process.env.RAZORPAY_KEY_ID || 'rzp_test_TvQOZTcCmjmYxU').trim();
+  const keySecret = (process.env.RAZORPAY_KEY_SECRET || 'KTz5uw49CKktloo8sn9HDIRP').trim();
+  const accountNumber = (process.env.RAZORPAY_ACCOUNT_NUMBER || '78787800800811').trim();
 
-  const authString = Buffer.from(`${keyId.trim()}:${keySecret.trim()}`).toString('base64');
+  // Basic Authorization String Encoding
+  const authHeader = `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`;
 
   try {
     // 1. Create Contact
-    const contactRes = await axios.post('https://api.razorpay.com/v1/contacts', {
-      name: "RVM Recycling User",
-      email: "user@example.com",
-      contact: "9999999999",
-      type: "customer",
-      reference_id: `REF_${Date.now()}`
-    }, {
-      headers: {
-        'Authorization': `Basic ${authString}`,
-        'Content-Type': 'application/json'
+    const contactRes = await axios.post(
+      'https://api.razorpay.com/v1/contacts',
+      {
+        name: "RVM User",
+        email: "user@example.com",
+        contact: "9876543210",
+        type: "customer",
+        reference_id: `REF_${Date.now()}`
+      },
+      {
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
+        }
       }
-    });
+    );
 
     const contactId = contactRes.data.id;
 
     // 2. Create Fund Account
-    const fundAccountRes = await axios.post('https://api.razorpay.com/v1/fund_accounts', {
-      contact_id: contactId,
-      account_type: "vpa",
-      vpa: { address: upiId }
-    }, {
-      headers: {
-        'Authorization': `Basic ${authString}`,
-        'Content-Type': 'application/json'
+    const fundAccountRes = await axios.post(
+      'https://api.razorpay.com/v1/fund_accounts',
+      {
+        contact_id: contactId,
+        account_type: "vpa",
+        vpa: { address: upiId }
+      },
+      {
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
+        }
       }
-    });
+    );
 
     const fundAccountId = fundAccountRes.data.id;
 
     // 3. Create Payout
-    const payoutRes = await axios.post('https://api.razorpay.com/v1/payouts', {
-      account_number: accountNumber,
-      fund_account_id: fundAccountId,
-      amount: Math.round(parseFloat(amount) * 100),
-      currency: "INR",
-      mode: "UPI",
-      purpose: "payout",
-      queue_if_low_balance: true,
-      reference_id: `RVM_${sessionId}_${Date.now()}`
-    }, {
-      headers: {
-        'Authorization': `Basic ${authString}`,
-        'Content-Type': 'application/json'
+    const payoutRes = await axios.post(
+      'https://api.razorpay.com/v1/payouts',
+      {
+        account_number: accountNumber,
+        fund_account_id: fundAccountId,
+        amount: Math.round(parseFloat(amount) * 100), // Amount in paise
+        currency: "INR",
+        mode: "UPI",
+        purpose: "payout",
+        queue_if_low_balance: true,
+        reference_id: `RVM_${sessionId}_${Date.now()}`
+      },
+      {
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
+        }
       }
-    });
+    );
 
     console.log('[RAZORPAYX SUCCESS]:', payoutRes.data);
-    return res.status(200).json({ success: true, payoutId: payoutRes.data.id });
+    return res.status(200).json({ success: true, payoutId: payoutRes.data.id, data: payoutRes.data });
 
   } catch (error) {
     const errorDetails = error.response ? error.response.data : error.message;
